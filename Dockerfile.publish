@@ -1,0 +1,37 @@
+FROM 056684691971.dkr.ecr.us-east-1.amazonaws.com/sps-instantclient:latest
+
+RUN apt-get update
+RUN apt-get install -y python3
+RUN apt-get install -y python3-pip
+RUN apt-get install -y build-essential
+RUN apt-get install -y libssl-dev
+RUN apt-get install -y libffi-dev
+RUN apt-get install -y libpq-dev
+RUN apt-get install -y python3-dev
+RUN apt-get install -y nginx
+RUN apt-get install -y supervisor
+RUN apt-get install -y unzip
+
+RUN mkdir -p /opt/sps/api
+WORKDIR /opt/sps/api
+COPY api ./
+COPY api/conf api/
+COPY api/data_access api/
+COPY api/utils api/
+
+RUN pip3 install --upgrade pip && \
+    pip3 install -r requirements.pip
+
+# nginx config
+RUN rm /etc/nginx/sites-enabled/default && \
+    cp conf/deploy-api.nginx.conf /etc/nginx/sites-available && \
+    ln -s /etc/nginx/sites-available/deploy-api.nginx.conf /etc/nginx/sites-enabled/deploy-api.nginx.conf
+
+# user/permissions setup
+RUN groupadd deploy && useradd -g deploy deploy && \
+    chown -R deploy:deploy /opt/sps/api
+
+EXPOSE 80
+CMD service nginx start && \
+    supervisord -c conf/deploy-api.supervisor.conf && \
+    sleep 1 && tail -f conf/deploy-api.log
